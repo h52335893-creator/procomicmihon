@@ -1,42 +1,29 @@
-# إضافة ProComic العربية لـ Mihon
+# ProComic extension — final verification v2
 
-هذه نسخة أولية من مصدر **ProComic** لمستودع إضافات Mihon/Keiyoushi. المصدر مضبوط على النطاق `https://procomic.net`، بينما النطاق `https://procomic.pro` يظهر كواجهة/مرآة تعيد التوجيه في بعض الصفحات.
+## Root cause fixed
 
-## الوظائف المدعومة
+The series page exposes only the newest 30 chapters in rendered HTML. The complete chapter list is available through `GET /api/public/chapters?contentId=...`, with a maximum page size of 50 and a `hasMore` flag. The previous extension parsed only visible `<a>` links, which caused older chapters to disappear.
 
-| الوظيفة | الحالة |
+The updated parser uses `contentId`, follows all pagination pages up to a safe limit, filters approved Arabic chapters, builds chapter URLs from the series slug, chapter number, and chapter ID, and preserves non-numeric chapter labels rather than dropping them.
+
+## Verification results
+
+| Check | Result |
 |---|---|
-| البحث عن السلاسل | مدعوم عبر الـ public API |
-| السلاسل الشائعة | مدعوم |
-| آخر التحديثات | مدعوم |
-| تفاصيل السلسلة | العنوان، الغلاف، الوصف، الحالة، التصنيفات |
-| قائمة الفصول | مدعومة للفصول الظاهرة للعامة |
-| صفحات القراءة | مدعومة للصور العامة الموجودة في صفحة الفصل |
-| الفصول المقفلة بالعملات أو الاختصار | لا يتم تجاوزها |
+| Kotlin `compileReleaseKotlin` | **BUILD SUCCESSFUL** |
+| Android `assembleRelease` | **BUILD SUCCESSFUL** |
+| Generated APK | `tachiyomi-ar.procomic-v1.6.3.apk` |
+| Generated JAR | `tachiyomi-ar.procomic-v1.6.3.jar` |
+| Real Man chapter API | 268 unique approved Arabic chapters, numbers 1–269 |
+| API pagination | Pages 1–6 returned all Real Man records; page 7 empty |
+| 20-series API sample | HTTP 200 for every tested series |
+| Popular and Latest API | HTTP 200 with results using the public search path |
+| Real Man chapter pages | HTTP 200 and image URLs found across sample chapters |
+| Image CDN samples | HTTP 200, AVIF content |
+| Mihon index JSON | Valid schema fields and absolute APK/icon URLs |
 
-## البناء
+## Expected limitations
 
-ضع مجلد `procomic` داخل مجلد `src/ar` في نسخة مستودع الإضافات، ثم نفّذ:
+The extension does not bypass login, safe-browsing restrictions, coin locks, shortlink locks, or exclusive chapters. If the website itself hides a chapter, Mihon cannot read it without the user having the required access on the website.
 
-```bash
-./gradlew :src:ar:procomic:assembleDebug
-```
-
-سيظهر ملف APK الناتج داخل مجلد `src/ar/procomic/build/outputs/apk/`. يجب أن تكون Android SDK وJDK 21 مضبوطة قبل البناء.
-
-## التثبيت
-
-بعد بناء APK، ثبّته على جهاز Android ثم افتح Mihon. يمكن أيضًا رفع الـ APK إلى مستودع إضافات خاص بك إذا كنت تريد تحديثات تلقائية. الإضافة مبنية كـ **مصدر عربي منفصل** وليست جزءًا من المستودع الرسمي تلقائيًا.
-
-## ملاحظات فنية
-
-الموقع يستخدم Next.js، ولذلك لا توجد كل روابط صفحات الفصل كعناصر HTML عادية. الكود يقرأ روابط الصور العامة من بيانات الصفحة المضمّنة داخل `script`، ثم يرسل `Referer` مناسبًا عند طلب الصور. تم اختبار parsing حيًّا على صفحة **Real Man** وعلى الفصل `real-man-269-52254`: تم العثور على عنوان العمل، 31 رابط فصل في الصفحة المحملة، و3 روابط صور، وكانت أول صورة تستجيب بحالة HTTP 200 ونوع `image/avif`.
-
-لم يتم تضمين أي منطق لتسجيل الدخول أو شراء العملات أو تجاوز الروابط المختصرة والحماية. إذا كان فصل ما غير متاح للعامة على الموقع، ستظل الإضافة غير قادرة على جلبه، وهذا مقصود.
-
-## المراجع
-
-[1]: https://procomic.net/ar/series "ProComic series index"
-[2]: https://procomic.net/ar/real-man-638 "ProComic Real Man series"
-[3]: https://procomic.net/ar/chapter/real-man-269-52254 "ProComic Real Man chapter 269"
-[4]: https://keiyoushi.github.io/docs/guides/getting-started "Keiyoushi getting started guide"
+The final source and workflow are in `procomic-final-bundle-verified-v2.zip`. Upload the contents to the root of the `main` branch, replacing the old `.github` and `procomic` files, then let GitHub Actions publish the new APK and index to the `repo` branch.

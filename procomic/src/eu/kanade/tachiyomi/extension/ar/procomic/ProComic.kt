@@ -1,16 +1,17 @@
 package eu.kanade.tachiyomi.extension.ar.procomic
 
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.util.asJsoup
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.asJsoup
 import keiyoushi.annotation.Source
 import keiyoushi.network.rateLimit
 import keiyoushi.utils.parseAs
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
@@ -40,7 +41,6 @@ abstract class ProComic : HttpSource() {
     override fun latestUpdatesParse(response: Response): MangasPage = parseSearchResponse(response)
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        // The public API currently handles one search token more reliably than a phrase.
         val normalizedQuery = query.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
         return apiRequest(page, search = normalizedQuery)
     }
@@ -84,25 +84,59 @@ abstract class ProComic : HttpSource() {
         }
     }
 
-    override fun chapterListRequest(manga: SManga): Request = GET(baseUrl + manga.url, headers)
+    override fun chapterListRequest(manga: SManga): Request {
+        val contentId = CONTENT_ID_REGEX.find(manga.url)?.groupValues?.getOrNull(1).orEmpty()
+        val seriesSlug = manga.url.removePrefix("/ar/").substringBeforeLast("-")
+        val url = baseUrl.toHttpUrl().newBuilder()
+            .addPathSegments("api/public/chapters")
+            .addQueryParameter("contentId", contentId)
+            .addQueryParameter("status", "approved")
+            .addQueryParameter("limit", CHAPTER_PAGE_SIZE.toString())
+            .addQueryParameter("page", "1")
+            .addQueryParameter("seriesSlug", seriesSlug)
+            .build()
+        return GET(url, headers)
+    }
 
     override fun chapterListParse(response: Response): List<SChapter> {
-        val document = response.asJsoup()
-        val chapters = document.select("a[href*='/chapter/']")
-            .asSequence()
-            .mapNotNull { anchor: Element ->
-                val href = anchor.attr("href").trim()
-                if (href.isBlank()) return@mapNotNull null
-                val number = CHAPTER_NUMBER_REGEX.find(href)?.groupValues?.getOrNull(1)?.toFloatOrNull()
-                    ?: return@mapNotNull null
-                SChapter.create().apply {
-                    url = href.removePrefix(baseUrl)
-                    name = anchor.text().trim().ifBlank { "الفصل ${number.toInt()}" }
-                    chapter_number = number
+        val firstPage = response.parseAs<ChapterListResponse>()
+        val allChapters = firstPage.chapters.toMutableList()
+        var page = 1
+        var hasMore = firstPage.hasMore
+        val firstPageUrl = response.request.url
+
+        while (hasMore && page < MAX_CHAPTER_PAGES) {
+            page++
+            val nextUrl = firstPageUrl.newBuilder()
+                .setQueryParameter("page", page.toString())
+                .build()
+            client.newCall(GET(nextUrl, headers)).execute().use { nextResponse ->
+                if (!nextResponse.isSuccessful) {
+                    hasMore = false
+                } else {
+                    val nextPage = nextResponse.parseAs<ChapterListResponse>()
+                    allChapters += nextPage.chapters
+                    hasMore = nextPage.hasMore
                 }
             }
+        }
+
+        val seriesSlug = firstPageUrl.queryParameter("seriesSlug").orEmpty()
+        return allChapters
+            .asSequence()
+            .filter { it.status.equals("approved", ignoreCase = true) }
+            .filter { it.language.equals("AR", ignoreCase = true) }
+            .map { chapter ->
+                val chapterNumber = chapter.chapterNumber.trim()
+                SChapter.create().apply {
+                    url = "/ar/chapter/$seriesSlug-$chapterNumber-${chapter.id}"
+                    name = chapter.title.trim().ifBlank { "الفصل $chapterNumber" }
+                    chapter_number = chapterNumber.toFloatOrNull() ?: 0f
+                }
+            }
+            .distinctBy { chapter -> chapter.url }
+            .sortedByDescending { chapter -> chapter.chapter_number }
             .toList()
-        return chapters.distinctBy { chapter -> chapter.url }
     }
 
     override fun pageListRequest(chapter: SChapter): Request = GET(baseUrl + chapter.url, headers)
@@ -112,7 +146,7 @@ abstract class ProComic : HttpSource() {
         val scriptText = document.select("script")
             .asSequence()
             .joinToString("\n") { script: Element -> script.data() + script.html() }
-        val imageUrls = APP_IMAGE_REGEX.findAll(scriptText)
+        val imageUrls = IMAGE_URL_REGEX.findAll(scriptText)
             .map { match: MatchResult -> match.value.replace("\\u0026", "&") }
             .distinct()
             .toList()
@@ -170,8 +204,12 @@ abstract class ProComic : HttpSource() {
 
     companion object {
         private const val PAGE_SIZE = 20
-        private val CHAPTER_NUMBER_REGEX = Regex("-(\\d+)-\\d+(?:$|[/?#])")
-        private val APP_IMAGE_REGEX = Regex("https://app\\.procomic\\.(?:net|pro)/chapters/[^\\\"\\s\\\\]+\\.avif")
+        private const val CHAPTER_PAGE_SIZE = 50
+        private const val MAX_CHAPTER_PAGES = 20
+        private val CONTENT_ID_REGEX = Regex("-(\\d+)$")
+        private val IMAGE_URL_REGEX = Regex(
+            "https://app\\.procomic\\.(?:net|pro)/chapters/[^\\\"\\s\\\\]+\\.(?:avif|webp|jpe?g|png)",
+        )
     }
 }
 
@@ -185,6 +223,22 @@ data class SearchResponse(
 data class SearchMeta(
     val page: Int = 1,
     val pages: Int = 0,
+)
+
+@Serializable
+data class ChapterListResponse(
+    val chapters: List<ChapterDto> = emptyList(),
+    val hasMore: Boolean = false,
+    val total: Int = 0,
+)
+
+@Serializable
+data class ChapterDto(
+    val id: Int,
+    @SerialName("chapter_number") val chapterNumber: String = "",
+    val title: String = "",
+    val language: String = "",
+    val status: String = "",
 )
 
 @Serializable
