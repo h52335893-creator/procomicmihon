@@ -5,12 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
-  
-  permissions:
+
+permissions:
   contents: write
 
-
 jobs:
+
   build:
     runs-on: ubuntu-latest
     steps:
