@@ -75,9 +75,9 @@ abstract class ProComic : HttpSource() {
         }
 
         return SManga.create().apply {
-            url = manga.url
-            this.title = title.ifBlank { manga.title }
-            thumbnail_url = thumbnail ?: manga.thumbnail_url
+            url = document.location().removePrefix(baseUrl).ifBlank { "/ar" }
+            this.title = title
+            thumbnail_url = thumbnail
             this.description = description
             this.genre = genres.joinToString(", ")
             this.status = status
