@@ -18,7 +18,7 @@ import org.jsoup.nodes.Document
 import java.util.Locale
 
 @Source
-class ProComic : HttpSource() {
+abstract class ProComic : HttpSource() {
     override val supportsLatest = true
 
     override val client = network.client.newBuilder()
