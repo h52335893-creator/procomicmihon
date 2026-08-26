@@ -1,22 +1,33 @@
 {
   "name": "ProComic Custom Repo",
-  "extensions": [
-    {
-      "name": "ProComic",
-      "packageName": "eu.kanade.tachiyomi.extension.ar.procomic",
-      "versionCode": 1,
-      "versionName": "1.6",
-      "lang": "ar",
-      "apk": "apk/procomic.apk",
-      "icon": "https://raw.githubusercontent.com/h52335893-creator/procomicmihon/main/procomic/res/mipmap-xxxhdpi/ic_launcher.png",
-      "sources": [
-        {
-          "id": 5402507379714769896,
-          "name": "بروكوميك",
-          "lang": "ar",
-          "baseUrl": "https://procomic.net"
-        }
-      ]
-    }
-  ]
+  "badgeLabel": "PRO",
+  "signingKey": "",
+  "contact": {
+    "website": "https://github.com/h52335893-creator/procomicmihon"
+  },
+  "extensionList": {
+    "extensions": [
+      {
+        "name": "ProComic",
+        "packageName": "eu.kanade.tachiyomi.extension.ar.procomic",
+        "resources": {
+          "apkUrl": "https://raw.githubusercontent.com/h52335893-creator/procomicmihon/repo/apk/procomic.apk",
+          "iconUrl": "https://raw.githubusercontent.com/h52335893-creator/procomicmihon/main/procomic/res/mipmap-xxxhdpi/ic_launcher.png",
+          "jarUrl": "https://raw.githubusercontent.com/h52335893-creator/procomicmihon/repo/jar/procomic.jar"
+        },
+        "extensionLib": "1.6",
+        "versionCode": "3",
+        "versionName": "1.6.3",
+        "contentWarning": "CONTENT_WARNING_SAFE",
+        "sources": [
+          {
+            "id": "5402507379714769896",
+            "name": "بروكوميك",
+            "language": "ar",
+            "homeUrl": "https://procomic.net"
+          }
+        ]
+      }
+    ]
+  }
 }
