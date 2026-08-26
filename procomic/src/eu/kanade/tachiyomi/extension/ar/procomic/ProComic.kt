@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import java.util.Locale
 
 @Source
@@ -87,8 +87,9 @@ abstract class ProComic : HttpSource() {
 
     override fun chapterListParse(response: Response): List<SChapter> {
         val document = response.asJsoup()
-        return document.select("a[href*='/chapter/']")
-            .mapNotNull { anchor ->
+        val chapters = document.select("a[href*='/chapter/']")
+            .asSequence()
+            .mapNotNull { anchor: Element ->
                 val href = anchor.attr("href").trim()
                 if (href.isBlank()) return@mapNotNull null
                 val number = CHAPTER_NUMBER_REGEX.find(href)?.groupValues?.getOrNull(1)?.toFloatOrNull()
@@ -99,16 +100,19 @@ abstract class ProComic : HttpSource() {
                     chapter_number = number
                 }
             }
-            .distinctBy { it.url }
+            .toList()
+        return chapters.distinctBy { chapter -> chapter.url }
     }
 
     override fun pageListRequest(chapter: SChapter): Request = GET(baseUrl + chapter.url, headers)
 
     override fun pageListParse(response: Response): List<Page> {
         val document = response.asJsoup()
-        val scriptText = document.select("script").joinToString("\n") { it.data() + it.html() }
+        val scriptText = document.select("script")
+            .asSequence()
+            .joinToString("\n") { script: Element -> script.data() + script.html() }
         val imageUrls = APP_IMAGE_REGEX.findAll(scriptText)
-            .map { it.value.replace("\\u0026", "&") }
+            .map { match: MatchResult -> match.value.replace("\\u0026", "&") }
             .distinct()
             .toList()
         val chapterUrl = response.request.url.toString()
