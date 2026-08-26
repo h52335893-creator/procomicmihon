@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.extension.ar.procomic
 
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.util.asJsoup
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
@@ -14,7 +15,7 @@ import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import java.util.Locale
 
 @Source
@@ -30,11 +31,11 @@ abstract class ProComic : HttpSource() {
         .set("Origin", baseUrl)
         .set("Accept-Language", "ar,en;q=0.8")
 
-    override fun popularMangaRequest(page: Int): Request = apiRequest(page, sort = "popular")
+    override fun popularMangaRequest(page: Int): Request = apiRequest(page, search = "_", sort = "popular")
 
     override fun popularMangaParse(response: Response): MangasPage = parseSearchResponse(response)
 
-    override fun latestUpdatesRequest(page: Int): Request = apiRequest(page, sort = "latest_chapter")
+    override fun latestUpdatesRequest(page: Int): Request = apiRequest(page, search = "_", sort = "latest_chapter")
 
     override fun latestUpdatesParse(response: Response): MangasPage = parseSearchResponse(response)
 
@@ -74,9 +75,9 @@ abstract class ProComic : HttpSource() {
         }
 
         return SManga.create().apply {
-            url = manga.url
-            this.title = title.ifBlank { manga.title }
-            thumbnail_url = thumbnail ?: manga.thumbnail_url
+            url = document.location().removePrefix(baseUrl).ifBlank { "/ar" }
+            this.title = title
+            thumbnail_url = thumbnail
             this.description = description
             this.genre = genres.joinToString(", ")
             this.status = status
@@ -87,8 +88,9 @@ abstract class ProComic : HttpSource() {
 
     override fun chapterListParse(response: Response): List<SChapter> {
         val document = response.asJsoup()
-        return document.select("a[href*='/chapter/']")
-            .mapNotNull { anchor ->
+        val chapters = document.select("a[href*='/chapter/']")
+            .asSequence()
+            .mapNotNull { anchor: Element ->
                 val href = anchor.attr("href").trim()
                 if (href.isBlank()) return@mapNotNull null
                 val number = CHAPTER_NUMBER_REGEX.find(href)?.groupValues?.getOrNull(1)?.toFloatOrNull()
@@ -99,16 +101,19 @@ abstract class ProComic : HttpSource() {
                     chapter_number = number
                 }
             }
-            .distinctBy { it.url }
+            .toList()
+        return chapters.distinctBy { chapter -> chapter.url }
     }
 
     override fun pageListRequest(chapter: SChapter): Request = GET(baseUrl + chapter.url, headers)
 
     override fun pageListParse(response: Response): List<Page> {
         val document = response.asJsoup()
-        val scriptText = document.select("script").joinToString("\n") { it.data() + it.html() }
+        val scriptText = document.select("script")
+            .asSequence()
+            .joinToString("\n") { script: Element -> script.data() + script.html() }
         val imageUrls = APP_IMAGE_REGEX.findAll(scriptText)
-            .map { it.value.replace("\\u0026", "&") }
+            .map { match: MatchResult -> match.value.replace("\\u0026", "&") }
             .distinct()
             .toList()
         val chapterUrl = response.request.url.toString()
