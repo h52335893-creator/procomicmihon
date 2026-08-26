@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension.ar.procomic
 
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
