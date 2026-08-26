@@ -1,0 +1,66 @@
+name: Build and Publish ProComic
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build Extension
+        run: |
+          # تنزيل ملفات البناء الأساسية من مستودع Mihon الرسمي
+          git clone --depth 1 https://github.com/keiyoushi/extensions-source.git upstream
+          mkdir -p upstream/src/ar/procomic
+          cp -r procomic/* upstream/src/ar/procomic/
+          cd upstream
+          # بناء الإضافة (APK )
+          chmod +x gradlew
+          ./gradlew :src:ar:procomic:assembleRelease
+
+      - name: Prepare Repo Branch
+        run: |
+          mkdir -p repo/apk
+          cp upstream/src/ar/procomic/build/outputs/apk/release/*.apk repo/apk/procomic.apk
+          # إنشاء فهرس بسيط بصيغة JSON (Mihon بيقبله)
+          echo '{
+            "name": "ProComic Custom Repo",
+            "extensions": [
+              {
+                "name": "ProComic",
+                "packageName": "eu.kanade.tachiyomi.extension.ar.procomic",
+                "versionCode": 1,
+                "versionName": "1.6",
+                "lang": "ar",
+                "apk": "apk/procomic.apk",
+                "icon": "https://raw.githubusercontent.com/${{ github.repository }}/main/procomic/res/mipmap-xxxhdpi/ic_launcher.png",
+                "sources": [
+                  {
+                    "id": 1,
+                    "name": "بروكوميك",
+                    "lang": "ar",
+                    "baseUrl": "https://procomic.net"
+                  }
+                ]
+              }
+            ]
+          }' > repo/index.json
+
+      - name: Deploy to repo branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: repo
+          branch: repo
+          token: ${{ secrets.GITHUB_TOKEN }}
