@@ -21,12 +21,10 @@ jobs:
 
       - name: Build Extension
         run: |
-          # تنزيل ملفات البناء الأساسية من مستودع Mihon الرسمي
           git clone --depth 1 https://github.com/keiyoushi/extensions-source.git upstream
           mkdir -p upstream/src/ar/procomic
           cp -r procomic/* upstream/src/ar/procomic/
           cd upstream
-          # بناء الإضافة (APK )
           chmod +x gradlew
           ./gradlew :src:ar:procomic:assembleRelease
 
@@ -34,7 +32,6 @@ jobs:
         run: |
           mkdir -p repo/apk
           cp upstream/src/ar/procomic/build/outputs/apk/release/*.apk repo/apk/procomic.apk
-          # إنشاء فهرس بسيط بصيغة JSON (Mihon بيقبله)
           echo '{
             "name": "ProComic Custom Repo",
             "extensions": [
@@ -48,7 +45,7 @@ jobs:
                 "icon": "https://raw.githubusercontent.com/${{ github.repository }}/main/procomic/res/mipmap-xxxhdpi/ic_launcher.png",
                 "sources": [
                   {
-                    "id": 1,
+                    "id": 5402507379714769896,
                     "name": "بروكوميك",
                     "lang": "ar",
                     "baseUrl": "https://procomic.net"
