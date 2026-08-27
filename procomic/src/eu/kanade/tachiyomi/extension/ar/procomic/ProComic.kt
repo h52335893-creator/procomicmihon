@@ -16,7 +16,6 @@ import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.nodes.Element
 import java.util.Locale
 
 @Source
@@ -143,11 +142,12 @@ abstract class ProComic : HttpSource() {
 
     override fun pageListParse(response: Response): List<Page> {
         val document = response.asJsoup()
-        val scriptText = document.select("script")
-            .asSequence()
-            .joinToString("\n") { script: Element -> script.data() + script.html() }
-        val imageUrls = IMAGE_URL_REGEX.findAll(scriptText)
-            .map { match: MatchResult -> match.value.replace("\\u0026", "&") }
+        val normalizedHtml = document.html()
+            .replace("\\/", "/")
+            .replace("\\u002F", "/")
+            .replace("\\u0026", "&")
+        val imageUrls = IMAGE_URL_REGEX.findAll(normalizedHtml)
+            .map { match: MatchResult -> match.value }
             .distinct()
             .toList()
         val chapterUrl = response.request.url.toString()
@@ -205,10 +205,10 @@ abstract class ProComic : HttpSource() {
     companion object {
         private const val PAGE_SIZE = 20
         private const val CHAPTER_PAGE_SIZE = 50
-        private const val MAX_CHAPTER_PAGES = 20
+        private const val MAX_CHAPTER_PAGES = 100
         private val CONTENT_ID_REGEX = Regex("-(\\d+)$")
         private val IMAGE_URL_REGEX = Regex(
-            "https://app\\.procomic\\.(?:net|pro)/chapters/[^\\\"\\s\\\\]+\\.(?:avif|webp|jpe?g|png)",
+            "https://app\\.(?:procomic|prochan)\\.(?:net|pro)/chapters/[^\\\"'\\s\\\\]+\\.(?:avif|webp|jpe?g|png)(?:\\?[^\\\"'\\s\\\\]*)?",
         )
     }
 }
