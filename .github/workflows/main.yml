@@ -57,8 +57,8 @@ jobs:
                     "jarUrl": "https://raw.githubusercontent.com/${{ github.repository }}/repo/jar/procomic.jar"
                   },
                   "extensionLib": "1.6",
-                  "versionCode": "4",
-                  "versionName": "1.6.4",
+                  "versionCode": "5",
+                  "versionName": "1.6.5",
                   "contentWarning": "CONTENT_WARNING_SAFE",
                   "sources": [
                     {
