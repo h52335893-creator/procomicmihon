@@ -102,7 +102,7 @@ abstract class ProComic : HttpSource() {
         val firstPage = response.parseAs<ChapterListResponse>()
         val allChapters = firstPage.chapters.toMutableList()
         var page = 1
-        var hasMore = firstPage.hasMore
+        var hasMore = firstPage.hasMore == true
         val firstPageUrl = response.request.url
 
         while (hasMore && page < MAX_CHAPTER_PAGES) {
@@ -116,7 +116,7 @@ abstract class ProComic : HttpSource() {
                 } else {
                     val nextPage = nextResponse.parseAs<ChapterListResponse>()
                     allChapters += nextPage.chapters
-                    hasMore = nextPage.hasMore
+                    hasMore = nextPage.hasMore == true
                 }
             }
         }
@@ -130,7 +130,7 @@ abstract class ProComic : HttpSource() {
                 val chapterNumber = chapter.chapterNumber.trim()
                 SChapter.create().apply {
                     url = "/ar/chapter/$seriesSlug-$chapterNumber-${chapter.id}"
-                    name = chapter.title.trim().ifBlank { "الفصل $chapterNumber" }
+                    name = chapter.title?.trim().orEmpty().ifBlank { "الفصل $chapterNumber" }
                     chapter_number = chapterNumber.toFloatOrNull() ?: 0f
                 }
             }
@@ -228,15 +228,15 @@ data class SearchMeta(
 @Serializable
 data class ChapterListResponse(
     val chapters: List<ChapterDto> = emptyList(),
-    val hasMore: Boolean = false,
-    val total: Int = 0,
+    val hasMore: Boolean? = false,
+    val total: Int? = null,
 )
 
 @Serializable
 data class ChapterDto(
     val id: Int,
     @SerialName("chapter_number") val chapterNumber: String = "",
-    val title: String = "",
+    val title: String? = null,
     val language: String = "",
     val status: String = "",
 )
